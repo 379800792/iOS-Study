@@ -33,7 +33,7 @@
     self.window.rootViewController = _rootViewController;
     [self setUMSocial];
     [self checkAppUpdate];
-    //测试下git
+    //测试下git 再次测试
 
 #if 0
     // Required
