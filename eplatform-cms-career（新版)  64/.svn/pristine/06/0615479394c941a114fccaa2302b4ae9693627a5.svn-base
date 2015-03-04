@@ -1,0 +1,332 @@
+//
+//  ViewController.m
+//  eplatform-cms-edu
+//
+//  Created by Marble on 14/10/22.
+//  Copyright (c) 2014年 华夏大地教育. All rights reserved.
+//
+
+#import "ViewController.h"
+#import "AFNetworking.h"
+#import "MJRefresh.h"
+#import "HXCrudListResult.h"
+#import "HXCrudListRowResult.h"
+#import "TableViewCell.h"
+#import "NewDetailViewController.h"
+#import "UIImageView+AFNetworking.h"
+@interface ViewController (){
+    UITableView *_myTableView;
+    int currentPageList;
+    HXCrudListResult *_newsDataSource;
+    NSArray *_popArray;
+
+    UIImageView *_headerView;
+    UILabel *_headerTitle;
+    UIImageView *navTopLogo;
+    
+    UIImageView *popImageView;
+    UITableView *popTableView;
+}
+
+@end
+#define SCREENWIDTH  [[UIScreen mainScreen] bounds].size.width
+#define SCREENHEIGHT [[UIScreen mainScreen] bounds].size.height
+@implementation ViewController
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:YES];
+    //顶部的logo
+    navTopLogo = [[UIImageView alloc]initWithFrame:CGRectMake(5, 0, 136, 40)];
+    navTopLogo.image = [UIImage imageNamed:@"logo"];
+    [self.navigationController.navigationBar addSubview:navTopLogo];
+    if (_newsDataSource.body.count ==0) {
+        [_myTableView headerBeginRefreshing];
+    }
+    
+}
+- (void)viewWillDisappear:(BOOL)animated{
+    [super viewWillDisappear:YES];
+    [navTopLogo removeFromSuperview];
+    navTopLogo = nil;
+}
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    //返回按钮
+    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] init];
+    backItem.title = @"    ";
+    self.navigationItem.backBarButtonItem = backItem;
+    
+    //初始化数据源
+    _newsDataSource = [[HXCrudListResult alloc]init];
+    _popArray = @[@"小编推荐",@"考务考籍",@"考试报名",@"成绩查询",@"技巧经验",@"学历周边"];
+    currentPageList = 1;
+    
+
+    //目录按钮
+    UIButton *btn1 = [UIButton buttonWithType:UIButtonTypeCustom];
+    [btn1 setImage:[UIImage imageNamed:@"menu"] forState:UIControlStateNormal];
+    btn1.frame = CGRectMake(0, 4.5, 35, 35);
+    [btn1 addTarget:self action:@selector(menuButtonPressed) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *Button1 = [[UIBarButtonItem alloc]initWithCustomView:btn1];
+    
+    [self.navigationItem setRightBarButtonItem:Button1];
+    
+    CGRect rect = CGRectMake(0, 0, SCREENWIDTH, SCREENHEIGHT);
+    
+    _myTableView = [[UITableView alloc]initWithFrame:rect style:UITableViewStylePlain];
+    _myTableView.delegate = self;
+    _myTableView.dataSource = self;
+    [_myTableView setSeparatorInset:UIEdgeInsetsZero];
+    [self.view addSubview:_myTableView];
+    [self setupTableHeaderRefresh];
+    
+    
+    UIView *bgView = [[UIView alloc]initWithFrame:CGRectMake(0, 0, SCREENWIDTH, 280)];
+    bgView.backgroundColor = [UIColor whiteColor];
+    
+    _headerView = [[UIImageView alloc]initWithFrame:CGRectMake(10, 10, SCREENWIDTH-20, 270)];
+    _headerView.image = [UIImage imageNamed:@"xlxb_2.jpg"];
+    _headerView.contentMode = UIViewContentModeScaleAspectFill;
+    _headerView.clipsToBounds = YES;
+    _headerTitle = [[UILabel alloc]initWithFrame:CGRectMake(0, 270-40, SCREENWIDTH-20, 40)];
+    _headerTitle.backgroundColor = [UIColor blackColor];
+    _headerTitle.text = @"  新闻的标题";
+    _headerTitle.textColor = [UIColor whiteColor];
+    _headerTitle.font = [UIFont systemFontOfSize:18];
+    _headerTitle.numberOfLines = 2;
+    _headerTitle.lineBreakMode = NSLineBreakByCharWrapping;
+    _headerTitle.alpha = 0.8;
+    [_headerView addSubview:_headerTitle];
+    
+    [bgView addSubview:_headerView];
+    _myTableView.tableHeaderView = bgView;
+    
+    
+    popImageView = [[UIImageView alloc]initWithFrame:CGRectMake(160, 55, 150, 248)];
+    popImageView.hidden = YES;
+    popImageView.alpha = 0.96;
+    popImageView.userInteractionEnabled = YES;
+    popImageView.image = [UIImage imageNamed:@"menu_list"];
+    [self.navigationController.view addSubview:popImageView];
+    
+    popTableView = [[UITableView alloc]initWithFrame:CGRectMake(4, 13, 142, 228) style:UITableViewStylePlain];
+    [popTableView setSeparatorInset:UIEdgeInsetsZero];
+    popTableView.layer.cornerRadius = 5.5;
+    popTableView.dataSource = self;
+    popTableView.delegate = self;
+    popTableView.scrollsToTop = NO;
+    [popImageView addSubview:popTableView];
+
+    
+}
+#pragma mark - 下拉加载更多
+
+- (void)setupTableHeaderRefresh
+{
+    //下拉刷新(进入刷新状态就会调用self的headerRereshing)
+    [_myTableView addHeaderWithTarget:self action:@selector(headerRereshing)];
+    
+    // 设置文字(也可以不设置,默认的文字在MJRefreshConst中修改)
+    _myTableView.headerPullToRefreshText = @"下拉可以刷新了";
+    _myTableView.headerReleaseToRefreshText = @"松开马上刷新了";
+    _myTableView.headerRefreshingText = @"刷新中……";
+    
+    
+    [_myTableView addFooterWithTarget:self action:@selector(footerRereshing)];
+    
+    _myTableView.footerPullToRefreshText = @"上拉可以加载更多数据了";
+    _myTableView.footerReleaseToRefreshText = @"松开马上加载更多数据了";
+    _myTableView.footerRefreshingText = @"加载中……";
+}
+
+/**
+ *  设置上拉加载更多控件隐藏属性
+ */
+- (void)setTableFooterView:(BOOL)visible
+{
+    if (!visible) {
+        [_myTableView setFooterHidden:YES];
+    }else{
+        [_myTableView setFooterHidden:NO];
+    }
+}
+
+#pragma mark - 请求网络相关
+- (void)requestTheNewsWith:(int)page{
+    AFHTTPSessionManager *manger = [[AFHTTPSessionManager alloc]initWithBaseURL:[NSURL URLWithString:@"http://eplatform.edu-edu.com.cn/"]];
+    manger.requestSerializer.timeoutInterval = 5;
+    NSString *url = [NSString stringWithFormat:NewsListUrl,page];
+    [manger GET:url parameters:nil success:^(NSURLSessionDataTask *task, id responseObject) {
+        if ([[responseObject objectForKey:@"success"] intValue] == 1)
+        {
+            _newsDataSource.count = [[responseObject objectForKey:@"count"]intValue];
+            if (currentPageList == 1) {
+                _newsDataSource.body = nil;  //先清空原始数据
+            }
+            if ([responseObject objectForKey:@"body"] != nil) {
+                _newsDataSource.body = [responseObject objectForKey:@"body"];
+            }
+            if (_newsDataSource.count == 10) {
+                [self setTableFooterView:YES];
+                currentPageList++;
+            }else{
+                [self setTableFooterView:NO];
+            }
+            
+        }else
+        {
+            NSLog(@"获取我的答疑室数据失败");
+            
+        }
+        
+        [_myTableView reloadData];
+        
+        [_myTableView headerEndRefreshing];
+        [_myTableView footerEndRefreshing];
+
+    } failure:^(NSURLSessionDataTask *task, NSError *error) {
+        [_myTableView headerEndRefreshing];
+        [_myTableView footerEndRefreshing];
+
+    }];
+}
+#pragma mark - 开始进入刷新状态
+- (void)headerRereshing{
+    currentPageList = 1;
+    [self requestTheNewsWith:currentPageList];
+}
+//上拉加载更多
+- (void)footerRereshing
+{
+    [self requestTheNewsWith:currentPageList];
+
+}
+//点击事件
+- (void)menuButtonPressed{
+    
+    if (popImageView.hidden == YES) {
+        popImageView.hidden = NO;
+    }else{
+        popImageView.hidden = YES;
+        
+    }
+
+}
+#pragma mark - UITableViewDataSource
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    if (tableView == _myTableView) {
+        return _newsDataSource.body.count;
+
+    }else{
+        return _popArray.count;
+    }
+}
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    if (tableView == _myTableView) {
+        static NSString *cellId = @"newsCell";
+        TableViewCell *newCell = [tableView dequeueReusableCellWithIdentifier:cellId];
+        if (newCell == nil) {
+            newCell = [[TableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellId];
+        }
+        HXCrudListRowResult *result = [_newsDataSource.body objectAtIndex:indexPath.row];
+        newCell.newsTitle.text = [self isNull:(NSString *)[result.columns objectForKey:@"title"]];
+        newCell.newsType.text = [self isNull:(NSString *)[result.columns objectForKey:@"categoryName"]];
+        if ([[result.columns objectForKey:@"titleImage"] isKindOfClass:[NSNull class]]) {
+            //没有图
+            newCell.newsImg.frame = CGRectMake(10, GetNeedFrame_Y_From(newCell.newsType), 0, 0);
+        }else{
+            newCell.newsImg.frame = CGRectMake(10, GetNeedFrame_Y_From(newCell.newsType),SCREENWIDTH-20, SCREENWIDTH-60);
+            
+            NSArray *array = [ (NSString *)[result.columns objectForKey:@"titleImage"] componentsSeparatedByString:@"/"];
+            
+            NSString *url = [NSString stringWithFormat:@"http://eplatform.edu-edu.com.cn/cms/public/article/%@/images/%@",result.Id,[array objectAtIndex:0]];
+
+            NSURL *imgUrl = [NSURL URLWithString:url];
+            [newCell.newsImg setImageWithURL:imgUrl placeholderImage:[UIImage imageNamed:@"xlxb_1.jpg"]];
+        };
+        
+        newCell.newsShortContent.text = [self isNull:(NSString *)[result.columns objectForKey:@"shortContent"]];
+        CGSize sizeOfShortContent = [ newCell.newsShortContent.text sizeWithFont:[UIFont systemFontOfSize:15] constrainedToSize:CGSizeMake(SCREENWIDTH-20, 999) lineBreakMode:NSLineBreakByCharWrapping];
+        newCell.newsShortContent.frame = CGRectMake(10, GetNeedFrame_Y_From(newCell.newsImg)+10, SCREENWIDTH-20, sizeOfShortContent.height);
+        
+        newCell.newsLine.frame = CGRectMake(10, GetNeedFrame_Y_From(newCell.newsShortContent)+10, SCREENWIDTH-20, 0.8);
+
+        
+        newCell.newsDate.text = [self isNull:(NSString *)[result.columns objectForKey:@"publishTime"]];
+        newCell.newsDate.frame = CGRectMake(10, GetNeedFrame_Y_From(newCell.newsLine), SCREENWIDTH-20, 30);
+        return newCell;
+    }else{
+        static NSString *cellID = @"popCell";
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
+        if (cell == nil) {
+            cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellID];
+        }
+        
+        //设置选中时候的cell背景颜色
+        cell.selectedBackgroundView = [[UIView alloc] initWithFrame:CGRectMake(cell.frame.origin.x, cell.frame.origin.y+4, cell.frame.size.width, cell.frame.size.height-8)];
+        cell.selectedBackgroundView.backgroundColor = [hxTool hexStringToColor:@"#f8f8f8"];
+        cell.textLabel.highlightedTextColor = [hxTool hexStringToColor:@"#33CB67"];
+        cell.textLabel.text =  [_popArray  objectAtIndex:indexPath.row]; ;
+        cell.textLabel.textColor =[UIColor darkGrayColor];
+        cell.textLabel.textAlignment = NSTextAlignmentCenter;
+        cell.textLabel.font = [UIFont systemFontOfSize:19];
+        cell.textLabel.font = [UIFont boldSystemFontOfSize:19];
+        return cell;
+
+    }
+
+}
+- (NSString *)isNull:(NSString *)str{
+    if ([str isKindOfClass:[NSNull class]]) {
+        return @"";
+    }else{
+        return str;
+    }
+}
+#pragma mark - UITableViewDelegate
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (tableView == _myTableView) {
+    
+    HXCrudListRowResult *result = [_newsDataSource.body objectAtIndex:indexPath.row];
+        CGFloat cellHeight = 150;
+    if (![[result.columns objectForKey:@"titleImage"] isKindOfClass:[NSNull class]]) {
+        //没有图
+        cellHeight += SCREENWIDTH-60;
+    }
+    
+    CGSize sizeOfShortContent = [[self isNull:(NSString *)[result.columns objectForKey:@"shortContent"]] sizeWithFont:[UIFont systemFontOfSize:15] constrainedToSize:CGSizeMake(SCREENWIDTH-20, 999) lineBreakMode:NSLineBreakByCharWrapping];
+    cellHeight+= sizeOfShortContent.height;
+
+    return cellHeight;
+    }else
+    return 230/6;;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    if (tableView == _myTableView) {
+        [tableView deselectRowAtIndexPath:indexPath animated:YES];
+
+        NewDetailViewController *newDetail = [[NewDetailViewController alloc]init];
+        HXCrudListRowResult *result = [_newsDataSource.body objectAtIndex:indexPath.row];
+        newDetail.NewsHtmlUrl = [NSString stringWithFormat:@"http://training.edu-edu.com.cn/edu/editor/_detail/article_%@/index.html",result.Id];
+        [self.navigationController pushViewController:newDetail animated:YES];
+        
+    }else{
+        popImageView.hidden = YES;
+
+    }
+
+}
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event{
+    popImageView.hidden = YES;
+
+}
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+
+@end

@@ -1,0 +1,193 @@
+//
+//  NewDetailViewController.m
+//  eplatform-cms-edu
+//
+//  Created by Marble on 14/10/23.
+//  Copyright (c) 2014年 华夏大地教育. All rights reserved.
+//
+
+#import "NewDetailViewController.h"
+#import "AFNetworking.h"
+#import "common.h"
+#import "SVProgressHUD.h"
+@interface NewDetailViewController (){
+    UIWebView *_webview;
+    NSURLRequest *_request;
+    
+    //分享用
+    NSString *_imgUrl;
+    NSString *_titleText;
+    
+    UIActivityIndicatorView *activityIndicator;
+
+}
+@end
+#define ImgUrl @"http://training.edu-edu.com.cn"
+
+@implementation NewDetailViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.navigationController.navigationBar.tintColor = [hxTool hexStringToColor:@"#45CB6D"];
+    self.title = @"详情";
+    self.view.backgroundColor = [UIColor whiteColor];
+    //目录按钮
+    UIButton *btn1 = [UIButton buttonWithType:UIButtonTypeCustom];
+    [btn1 setImage:[UIImage imageNamed:@"ic_menu_share"] forState:UIControlStateNormal];
+    btn1.frame = CGRectMake(0, 4.5, 35, 35);
+    [btn1 addTarget:self action:@selector(shareButtonPressed) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *Button1 = [[UIBarButtonItem alloc]initWithCustomView:btn1];
+    
+    [self.navigationItem setRightBarButtonItem:Button1];
+
+    _webview = [[UIWebView alloc]initWithFrame:CGRectMake(0, 0, SCREENWIDTH,SCREENHEIGHT)];
+    _webview.delegate = self;
+    _webview.scalesPageToFit =NO;
+    _webview.scrollView.bounces = NO;
+    
+    activityIndicator = [[UIActivityIndicatorView alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 32.0f, 32.0f)];
+    [activityIndicator setCenter:self.view.center];
+    [activityIndicator setActivityIndicatorViewStyle:UIActivityIndicatorViewStyleGray];
+
+
+    [self.view addSubview:_webview];
+    [self.view addSubview:activityIndicator];
+
+    [self startWebRequest];
+
+
+}
+- (void)shareButtonPressed{
+    NSString *shareUrl;
+    if([self.NewsHtmlUrl rangeOfString:@"?"].location != NSNotFound)//_roaldSearchText
+    {
+        shareUrl = [NSString stringWithFormat:@"%@%@",self.NewsHtmlUrl,@"&_crossc=1"];
+    }
+    else
+    {
+        shareUrl = [NSString stringWithFormat:@"%@%@",self.NewsHtmlUrl,@"?_crossc=1"];
+    }
+    NSString *shareStr = [_titleText stringByAppendingString:shareUrl];
+    [UMSocialData defaultData].extConfig.wechatSessionData.url = shareUrl;
+    [UMSocialData defaultData].extConfig.wechatTimelineData.url = shareUrl;
+    [UMSocialData defaultData].extConfig.qqData.url = shareUrl;
+    [UMSocialData defaultData].extConfig.qzoneData.url = shareUrl;
+    
+    NSData *data;
+    
+    if (![_imgUrl isEqualToString:ImgUrl]) {
+        data = [NSData dataWithContentsOfURL:[NSURL URLWithString:_imgUrl]];
+    }else{
+        int n = arc4random()%5+1;
+        NSString *resourcePath = [ [NSBundle mainBundle] resourcePath];
+        NSString *filePath  = [resourcePath stringByAppendingPathComponent:[NSString stringWithFormat:@"xlxb_%d.jpg",n]];
+        data = [NSData dataWithContentsOfFile:filePath];
+    }
+    [UMSocialSnsService presentSnsIconSheetView:self
+                                         appKey:@"53d871affd98c5476a00b368"
+                                      shareText:shareStr
+                                     shareImage:data
+                                shareToSnsNames:[NSArray arrayWithObjects:UMShareToWechatSession,UMShareToWechatTimeline,UMShareToQQ,UMShareToQzone,UMShareToSina,nil]
+                                       delegate:self];
+
+}
+- (void)didFinishGetUMSocialDataInViewController:(UMSocialResponseEntity *)response{
+    //根据`responseCode`得到发送结果,如果分享成功
+    if(response.responseCode == UMSResponseCodeSuccess)
+    {
+        //得到分享到的微博平台名
+        NSLog(@"share to sns name is %@",[[response.data allKeys] objectAtIndex:0]);
+    }
+}
+//开始请求
+- (void)startWebRequest{
+    BOOL isHaveNet = [hxTool isConnectionAvalible];
+    if ( isHaveNet) {
+        _request =[NSURLRequest requestWithURL:[NSURL URLWithString:self.NewsHtmlUrl]];
+        
+        AFHTTPRequestOperationManager *manger = [AFHTTPRequestOperationManager manager];
+        manger.responseSerializer.acceptableContentTypes = [NSSet setWithObject:@"text/html"];
+        manger.requestSerializer = [AFJSONRequestSerializer serializer];
+        manger.responseSerializer = [AFHTTPResponseSerializer serializer];
+        [manger GET:self.NewsHtmlUrl parameters:nil success:^(AFHTTPRequestOperation *operation, id responseObject) {
+            
+            NSString *responseStr =  [[NSString alloc]initWithData:responseObject encoding:NSUTF8StringEncoding];
+            responseStr =[responseStr stringByReplacingOccurrencesOfString:@"class=\"navbar-header-green\"" withString:@"class=\"navbar-header-green\" style=\"display:none\""];
+            responseStr =[responseStr stringByReplacingOccurrencesOfString:@"id=\"ui_base_template_header\"" withString:@"id=\"ui_base_template_header\"  style=\"display:none\""];
+            responseStr =[responseStr stringByReplacingOccurrencesOfString:@"class=\"navbar hx-footer hx-top-gray-line hx-bottom-copy\"" withString:@"class=\"navbar hx-footer hx-top-gray-line hx-bottom-copy\"  style=\"display:none\""];
+          //  [_webview loadHTMLString:responseStr baseURL:nil];
+            [_webview loadRequest:_request];
+        } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
+            NSLog(@"%@",error.description);
+
+        }];
+        
+        
+        //[_webview loadRequest:_request];
+    }else{
+        UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"友情提示" message:@"当前网络不可用" delegate:self cancelButtonTitle:@"确定" otherButtonTitles: nil];
+        [alert show];
+    }
+}
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
+}
+#pragma mark webviewDelegate 
+- (void)webViewDidStartLoad:(UIWebView *)webView{
+    
+    [activityIndicator startAnimating];
+    [webView setHidden:YES];
+}
+- (void)webViewDidFinishLoad:(UIWebView *)webView{
+    [webView stringByEvaluatingJavaScriptFromString:@"$('.back-top').hide();"];
+    
+    
+    //缩小上边栏间距
+    
+    [webView stringByEvaluatingJavaScriptFromString:@"$('.ui-widget.ui-widget-42').attr('style','padding-top:0;');"];
+    
+    //去掉footer 跟点赞按钮
+    
+    [webView stringByEvaluatingJavaScriptFromString:@"$('footer').hide();$('.hx-share-container').hide();"];
+    
+    
+    //去掉web上的导航栏
+    
+    [webView stringByEvaluatingJavaScriptFromString:@"document.getElementById('ui_base_template_header').style.display=\"none\""];
+
+    int64_t delayInSeconds = 1;
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, delayInSeconds * NSEC_PER_SEC);
+    dispatch_after(popTime, dispatch_get_main_queue(), ^(void)
+                   {
+                       [activityIndicator stopAnimating];
+                       [webView setHidden:NO];
+                       
+                   });
+    
+    //获取分享内容
+    
+    _imgUrl = [NSString stringWithFormat:@"%@%@",ImgUrl,[webView stringByEvaluatingJavaScriptFromString:@"$('.title-image img').attr('src');"]];
+    _titleText =[webView stringByEvaluatingJavaScriptFromString:@"$('.box.content-box h1').text();"];
+}
+-(BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType;
+{
+    //文章中的带链接的 直接跳转Safari打开
+    NSURL *requestURL =[ request URL]  ;
+    if ( ( [ [ requestURL scheme ] isEqualToString: @"http" ] || [ [ requestURL scheme ] isEqualToString: @"https" ] || [ [ requestURL scheme ] isEqualToString: @"mailto" ])
+        && ( navigationType == UIWebViewNavigationTypeLinkClicked ) ) {
+        return ![ [ UIApplication sharedApplication ] openURL: requestURL   ];
+    }
+    return YES;
+}
+/*
+#pragma mark - Navigation
+
+// In a storyboard-based application, you will often want to do a little preparation before navigation
+- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
+    // Get the new view controller using [segue destinationViewController].
+    // Pass the selected object to the new view controller.
+}
+*/
+
+@end

@@ -1,0 +1,25 @@
+//
+//  TableViewCell.h
+//  eplatform-cms-edu
+//
+//  Created by Marble on 14/10/22.
+//  Copyright (c) 2014年 华夏大地教育. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
+#import "common.h"
+@interface TableViewCell : UITableViewCell
+//文章的标题
+@property (nonatomic,retain) UILabel *newsTitle;
+//文章的分类信息
+@property (nonatomic,retain) UILabel *newsType;
+//文章的图片
+@property (nonatomic,retain) UIImageView *newsImg;
+//文章的片段
+@property (nonatomic,retain) UILabel *newsShortContent;
+//分割线
+@property (nonatomic,retain) UILabel *newsLine;
+//文章的时间
+@property (nonatomic,retain) UILabel *newsDate;
+
+@end

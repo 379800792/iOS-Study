@@ -1,0 +1,31 @@
+//
+//  common.h
+//  eplatform-cms-edu
+//
+//  Created by Marble on 14/10/22.
+//  Copyright (c) 2014年 华夏大地教育. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+#import "hxTool.h"
+#import "SVProgressHUD.h"
+
+#define SCREENWIDTH  [[UIScreen mainScreen] bounds].size.width
+#define SCREENHEIGHT [[UIScreen mainScreen] bounds].size.height
+/**
+ * 获取某个控件的size 等等
+ */
+#define GetFrame_X_From(a) a.frame.origin.x
+#define GetFrame_Y_From(a) a.frame.origin.y
+#define GetFrame_Width_From(a) a.frame.size.width
+#define GetFrame_Height_From(a) a.frame.size.height
+
+#define GetNeedFrame_X_From(a) GetFrame_X_From(a)+GetFrame_Width_From(a)
+#define GetNeedFrame_Y_From(a) GetFrame_Y_From(a)+GetFrame_Height_From(a)
+
+#define hostUrl @"http://eplatform.edu-edu.com.cn"
+#define NewsListUrl @"/cms/public/column/articles/list/%d"
+#define NewsMenuListUrl @"/cms/public/column/articles/cates?_columnCode=android_developing"
+#define NewsSonListUrl @"cms/public/column/articles/search/%d"
+//参数 page 页码 _coulumnId
+
